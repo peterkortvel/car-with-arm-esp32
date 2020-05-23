@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<meta charset="utf-8" />
+<title>Mars Rover</title>
+
+
+<style>
+body{
+  background-color: #060c12;
+  color: #d3d3d3;
+  font-family: Arial;
+}
+.button {
+  background-color: #183349; /* Green */
+  border: none;
+  color: #d3d3d3;
+  padding: 15px 32px;
+  font-size: 40px;
+  margin: 4px 2px;
+  cursor: pointer;
+  opacity: 0.7;
+-webkit-touch-callout: none; /* iOS Safari */
+  -webkit-user-select: none; /* Safari */
+   -khtml-user-select: none; /* Konqueror HTML */
+     -moz-user-select: none; /* Old versions of Firefox */
+      -ms-user-select: none; /* Internet Explorer/Edge */
+          user-select: none;
+}
+button:hover {
+  opacity: 1;
+}
+
+
+.button:disabled,
+.button[disabled]{
+  opacity: 0.4;
+}
+
+.maincontainer {
+  text-align: center;
+}
+
+.dashcontainer {
+  background-color: #0a151e;
+  margin: 20px;
+  padding: 30px;
+}
+
+.slidecontainer {
+  width: 100%;
+}
+
+.slider {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 80px;
+  background: #d3d3d3;
+  outline: none;
+  opacity: 0.7;
+  -webkit-transition: .2s;
+  transition: opacity .2s;
+}
+
+.slider:hover {
+  opacity: 1;
+}
+
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 80px;
+  height: 80px;
+  background: #183349;
+  cursor: pointer;
+}
+
+.slider::-moz-range-thumb {
+  width: 80px;
+  height: 80px;
+  background: #183349;
+  cursor: pointer;
+}
+</style>
+<script language="javascript" type="text/javascript">
+
+var url = "ws://192.168.4.1:1337/";
+var output;
+var button;
+var buttonGo;
+var buttonLeft;
+var buttonRight;
+var buttonBack;
+var canvas;
+var context;
+
+
+var doubleTouchStartTimestamp = 0;
+document.addEventListener("touchstart", function(event){
+    var now = +(new Date());
+    if (doubleTouchStartTimestamp + 20 > now){
+        event.preventDefault();
+    };
+    doubleTouchStartTimestamp = now;
+});
+
+// This is called when the page finishes loading
+function init() {
+
+    // Assign page elements to variables
+    button = document.getElementById("toggleButton");
+    output = document.getElementById("output");
+    canvas = document.getElementById("led");
+    buttonGo = document.getElementById("goButton");
+    buttonLeft = document.getElementById("leftButton");
+    buttonRight = document.getElementById("rightButton");
+    buttonBack = document.getElementById("backButton");
+    sliderTurn = document.getElementById("armTurn")
+    sliderDistance = document.getElementById("armDistance")
+    sliderHeight = document.getElementById("armHeight")
+    sliderClamps = document.getElementById("armClamps")
+
+    // slider function
+    sliderTurn.oninput = function() {
+      var motor = "turn";
+      doSend(motor.concat(this.value));
+      console.log(motor.concat(this.value));
+    }
+    sliderDistance.oninput = function() {
+      var motor = "dist";
+      doSend(motor.concat(this.value));
+      console.log(motor.concat(this.value));
+    }
+    sliderHeight.oninput = function() {
+      var motor = "heig";
+      doSend(motor.concat(this.value));
+      console.log(motor.concat(this.value));
+    }
+    sliderClamps.oninput = function() {
+      var motor = "clam";
+      doSend(motor.concat(this.value));
+      console.log(motor.concat(this.value));
+    }
+
+
+
+    // Draw circle in canvas
+    context = canvas.getContext("2d");
+    context.arc(25, 25, 15, 0, Math.PI * 2, false);
+    context.lineWidth = 3;
+    context.strokeStyle = "black";
+    context.stroke();
+    context.fillStyle = "black";
+    context.fill();
+
+    // Connect to WebSocket server
+    wsConnect(url);
+}
+
+// Call this to connect to the WebSocket server
+function wsConnect(url) {
+
+    // Connect to WebSocket server
+    websocket = new WebSocket(url);
+
+    // Assign callbacks
+    websocket.onopen = function(evt) { onOpen(evt) };
+    websocket.onclose = function(evt) { onClose(evt) };
+    websocket.onmessage = function(evt) { onMessage(evt) };
+    websocket.onerror = function(evt) { onError(evt) };
+}
+
+// Called when a WebSocket connection is established with the server
+function onOpen(evt) {
+
+    // Log connection state
+    console.log("Connected");
+
+    // Enable button
+    button.disabled = false;
+    buttonGo.disabled = false;
+    buttonLeft.disabled = false;
+    buttonRight.disabled = false;
+    buttonBack.disabled = false;
+
+    // Get the current state of the LED
+    doSend("gets"); // get state
+}
+
+// Called when the WebSocket connection is closed
+function onClose(evt) {
+
+    // Log disconnection state
+    console.log("Disconnected");
+
+    // Disable button
+    button.disabled = true;
+    buttonGo.disabled = true;
+    buttonLeft.disabled = true;
+    buttonRigth.disabled = true;
+    buttonBack.disabled = true;
+
+
+    // Try to reconnect after a few seconds
+    setTimeout(function() { wsConnect(url) }, 2000);
+}
+
+// Called when a message is received from the server
+function onMessage(evt) {
+
+    // Print out our received message
+    console.log("Received: " + evt.data);
+
+    // Update circle graphic with LED state
+    switch(evt.data) {
+        case "0":
+            console.log("LED is off");
+            context.fillStyle = "black";
+            context.fill();
+            break;
+        case "1":
+            console.log("LED is on");
+            context.fillStyle = "red";
+            context.fill();
+            break;
+        default:
+            break;
+    }
+}
+
+// Called when a WebSocket error occurs
+function onError(evt) {
+    console.log("ERROR: " + evt.data);
+}
+
+// Sends a message to the server (and prints it to the console)
+function doSend(message) {
+    console.log("Sending: " + message);
+    websocket.send(message);
+}
+
+// Called whenever the HTML button is pressed
+function onPress(data) {
+    doSend(data); // toggle clamps
+    doSend("gets"); // get state
+}
+
+// Called whenever the HTML button is pressed
+function onPressMotor(data) {
+    doSend("gogo"); // toggle clamps
+}
+
+// Call the init function as soon as the page loads
+window.addEventListener("load", init, false);
+
+</script>
+
+
+<div class="maincontainer">
+<h1>MARS ROVER CONTROL PANEL</h1>
+<div class="dashcontainer">
+<table style="visibility: hidden;">
+    <tr>
+        <td width="33%"></td>
+        <td width="33%"><button id="toggleButton" onclick="onPress("togg")" disabled>Go!</button></td>
+        <td width="33%"><canvas id="led" width="50" height="50"></canvas></td>
+
+    </tr>
+</table>
+<table width="100%">
+    <tr>
+        <td width="33%"></td>
+        <td width="33%"><button id="goButton" class="button" onclick="onPress('gogo')" disabled>FRONT</button></td>
+        <td width="33%"></td>
+    </tr>
+    <tr>
+        <td width="33%"><button id="leftButton" class="button" onclick="onPress('left')" disabled>LEFT</button></td>
+        <td width="33%"></td>
+        <td width="33%"><button id="rightButton" class="button" onclick="onPress('righ')" disabled>RIGHT</button></td>
+    </tr>
+    <tr>
+        <td width="33%"></td>
+        <td width="33%"><button id="backButton" class="button" onclick="onPress('back')" disabled>BACK</button></td>
+        <td width="33%"></td>
+    </tr>
+
+</table>
+</div>
+
+<div class="dashcontainer">
+
+<table>
+    <tr>
+      <h2>TURN</h2>
+      <div class="slidecontainer">
+      <input type="range" min="5" max="178" value="30" class="slider" id="armTurn">
+      </div>
+    </tr>
+    <tr>
+      <h2>DISTANCE</h2>
+      <div class="slidecontainer">
+      <input type="range" min="10" max="130" value="80" class="slider" id="armDistance">
+      </div>
+    </tr>
+    <tr>
+      <h2>HEIGHT</h2>
+      <div class="slidecontainer">
+      <input type="range" min="5" max="100" value="50" class="slider" id="armHeight">
+      </div>
+    </tr>
+    <tr>
+      <h2>CLAMPS</h2>
+      <div class="slidecontainer">
+      <input type="range" min="120" max="180" value="160" class="slider" id="armClamps">
+      </div>
+    </tr>
+</table>
+</div>
+</div>
